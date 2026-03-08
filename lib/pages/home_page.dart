@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/daily_record.dart';
 import '../services/google_sheets_service.dart';
-import '../widgets/google_sign_in_button.dart';
 import '../widgets/styled_widgets.dart';
 import 'core_goal_page.dart';
 
@@ -30,11 +28,6 @@ class _HomePageState extends State<HomePage> {
     final sheetsService = context.read<GoogleSheetsService>();
 
     if (!sheetsService.isSignedIn) {
-      if (kIsWeb) {
-        // Web 版必須透過 renderButton() 登入，不能直接呼叫 authenticate()
-        return;
-      }
-
       setState(() => _signingIn = true);
       final success = await sheetsService.signIn();
       setState(() => _signingIn = false);
@@ -116,25 +109,6 @@ class _HomePageState extends State<HomePage> {
                         ],
                       );
                     }
-
-                    // Web 版：使用官方 Google Sign-In 按鈕
-                    if (kIsWeb) {
-                      return Column(
-                        children: [
-                          const Text(
-                            '請先登入 Google 帳號',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          buildGoogleSignInButton(),
-                        ],
-                      );
-                    }
-
-                    // 手機版：點 START 觸發登入
                     return StyledButton(
                       text: _signingIn ? '登入中...' : 'START',
                       onPressed: _handleStart,

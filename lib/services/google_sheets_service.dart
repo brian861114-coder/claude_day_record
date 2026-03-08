@@ -15,6 +15,8 @@ class GoogleSheetsService extends ChangeNotifier {
     SheetsApi.spreadsheetsScope,
   ];
 
+  late final GoogleSignIn _googleSignIn;
+
   bool _isSignedIn = false;
   bool get isSignedIn => _isSignedIn;
 
@@ -26,36 +28,34 @@ class GoogleSheetsService extends ChangeNotifier {
 
   SheetsApi? _sheetsApi;
   bool _initialized = false;
-  GoogleSignInAccount? _currentUser;
 
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
 
-    final googleSignIn = GoogleSignIn.instance;
-    await googleSignIn.initialize(
-      clientId: webClientId,
+    _googleSignIn = GoogleSignIn(
+      // Web 版需要明確指定 clientId；手機版從設定檔讀取
+      clientId: kIsWeb ? webClientId : null,
+      scopes: _scopes,
     );
 
-    googleSignIn.authenticationEvents.listen((event) {
-      switch (event) {
-        case GoogleSignInAuthenticationEventSignIn():
-          _currentUser = event.user;
-          _isSignedIn = true;
-          _userName = event.user.displayName;
-          _sheetsApi = null; // Reset so it gets re-created with new user
-          notifyListeners();
-        case GoogleSignInAuthenticationEventSignOut():
-          _currentUser = null;
-          _isSignedIn = false;
-          _userName = null;
-          _sheetsApi = null;
-          notifyListeners();
+    _googleSignIn.onCurrentUserChanged.listen((account) async {
+      if (account != null) {
+        _isSignedIn = true;
+        _userName = account.displayName;
+        _sheetsApi = null;
+        notifyListeners();
+        await _ensureSheetsApi();
+      } else {
+        _isSignedIn = false;
+        _userName = null;
+        _sheetsApi = null;
+        notifyListeners();
       }
     });
 
-    // Try silent sign-in
-    googleSignIn.attemptLightweightAuthentication();
+    // 嘗試靜默登入（之前已登入的使用者）
+    await _googleSignIn.signInSilently();
   }
 
   Future<bool> signIn() async {
@@ -63,8 +63,8 @@ class GoogleSheetsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final googleSignIn = GoogleSignIn.instance;
-      _currentUser = await googleSignIn.authenticate(scopeHint: _scopes);
+      final account = await _googleSignIn.signIn();
+      if (account == null) return false;
       await _ensureSheetsApi();
       return _isSignedIn;
     } catch (e) {
@@ -77,31 +77,17 @@ class GoogleSheetsService extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    await GoogleSignIn.instance.signOut();
+    await _googleSignIn.signOut();
     _sheetsApi = null;
-    _currentUser = null;
   }
 
   Future<void> _ensureSheetsApi() async {
     if (_sheetsApi != null) return;
-    if (_currentUser == null) return;
 
     try {
-      // Try silent authorization first
-      GoogleSignInClientAuthorization? authorization = await _currentUser!
-          .authorizationClient
-          .authorizationForScopes(_scopes);
-
-      // If that fails, request with user interaction
-      authorization ??= await _currentUser!
-          .authorizationClient
-          .authorizeScopes(_scopes);
-
-      // Use extension method to get AuthClient from GoogleSignInClientAuthorization
-      final authClient = authorization.authClient(scopes: _scopes);
+      final authClient = await _googleSignIn.authenticatedClient();
+      if (authClient == null) return;
       _sheetsApi = SheetsApi(authClient);
-
-      // 連線後立即確認欄位標題是否存在
       await ensureHeaders();
     } catch (e) {
       debugPrint('Error creating Sheets API client: $e');
@@ -109,7 +95,6 @@ class GoogleSheetsService extends ChangeNotifier {
   }
 
   Future<void> ensureHeaders() async {
-    await _ensureSheetsApi();
     if (_sheetsApi == null) return;
 
     try {
@@ -182,7 +167,6 @@ class GoogleSheetsService extends ChangeNotifier {
 
       if (response.values == null || response.values!.length <= 1) return null;
 
-      // Find the last row matching the project name
       for (int i = response.values!.length - 1; i >= 1; i--) {
         final row = response.values![i];
         if (row.length > 2 && row[2].toString().trim() == projectName) {
