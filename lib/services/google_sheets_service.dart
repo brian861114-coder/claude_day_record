@@ -31,6 +31,8 @@ class GoogleSheetsService extends ChangeNotifier {
 
   SheetsApi? _sheetsApi;
   bool _initialized = false;
+  String? _lastError;
+  String? get lastError => _lastError;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -86,15 +88,20 @@ class GoogleSheetsService extends ChangeNotifier {
 
   Future<void> _ensureSheetsApi() async {
     if (_sheetsApi != null) return;
+    _lastError = null;
 
     try {
       final authClient = await _googleSignIn.authenticatedClient();
-      if (authClient == null) return;
+      if (authClient == null) {
+        _lastError = '無法取得授權客戶端，請確保以正確帳號登入並授權權限';
+        return;
+      }
       _sheetsApi = SheetsApi(authClient);
       await _detectActiveSheet();
       await ensureHeaders();
     } catch (e) {
-      debugPrint('Error creating Sheets API client: $e');
+      _lastError = '創建 Sheets API 時發生錯誤: $e';
+      debugPrint(_lastError);
     }
   }
 
@@ -111,7 +118,11 @@ class GoogleSheetsService extends ChangeNotifier {
         debugPrint('Detected active sheet: $_activeSheetName');
         return;
       } catch (e) {
-        debugPrint('Sheet "$name" not found, trying next...');
+        debugPrint('Sheet "$name" not found or error: $e');
+        // 如果錯誤不是範圍錯誤 (可能是 ID 錯或沒開 API)，就在此紀錄
+        if (!e.toString().contains('range')) {
+           _lastError = '存取試算表失敗，請檢查 ID 是否正確且 Google Sheets API 已開啟';
+        }
       }
     }
     debugPrint('Warning: No known sheet names found. Falling back to $_activeSheetName');
@@ -226,7 +237,8 @@ class GoogleSheetsService extends ChangeNotifier {
       );
       return true;
     } catch (e) {
-      debugPrint('Error appending record: $e');
+      _lastError = '儲存紀錄失敗: $e';
+      debugPrint(_lastError);
       return false;
     }
   }

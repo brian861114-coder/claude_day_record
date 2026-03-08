@@ -49,7 +49,11 @@ class _ReflectionPageState extends State<ReflectionPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('儲存失敗，請檢查網路連線後重試')),
+          SnackBar(
+            content: Text(service.lastError ?? '儲存失敗，請檢查網路連線後重試'),
+            backgroundColor: Colors.red.shade800,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }
