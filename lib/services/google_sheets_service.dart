@@ -9,7 +9,10 @@ class GoogleSheetsService extends ChangeNotifier {
       '11gb_lVWqomuKTqFG6H_4sRVYikHn2ZNvB5bfeycjLbE';
   static const String webClientId =
       '640508411383-0igbekbk5uk4g04td82fbath7ug48brt.apps.googleusercontent.com';
-  static const String sheetName = 'Sheet1';
+  
+  // 優先嘗試的分頁名稱列表
+  static const List<String> _possibleSheetNames = ['Sheet1', '工作表1'];
+  String _activeSheetName = 'Sheet1';
 
   static const List<String> _scopes = [
     SheetsApi.spreadsheetsScope,
@@ -88,10 +91,30 @@ class GoogleSheetsService extends ChangeNotifier {
       final authClient = await _googleSignIn.authenticatedClient();
       if (authClient == null) return;
       _sheetsApi = SheetsApi(authClient);
+      await _detectActiveSheet();
       await ensureHeaders();
     } catch (e) {
       debugPrint('Error creating Sheets API client: $e');
     }
+  }
+
+  Future<void> _detectActiveSheet() async {
+    if (_sheetsApi == null) return;
+
+    for (final name in _possibleSheetNames) {
+      try {
+        await _sheetsApi!.spreadsheets.values.get(
+          spreadsheetId,
+          '$name!A1:A1',
+        );
+        _activeSheetName = name;
+        debugPrint('Detected active sheet: $_activeSheetName');
+        return;
+      } catch (e) {
+        debugPrint('Sheet "$name" not found, trying next...');
+      }
+    }
+    debugPrint('Warning: No known sheet names found. Falling back to $_activeSheetName');
   }
 
   Future<void> ensureHeaders() async {
@@ -100,7 +123,7 @@ class GoogleSheetsService extends ChangeNotifier {
     try {
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$sheetName!A1:P1',
+        '$_activeSheetName!A1:P1',
       );
 
       final firstCell = response.values?.isNotEmpty == true
@@ -116,7 +139,7 @@ class GoogleSheetsService extends ChangeNotifier {
         await _sheetsApi!.spreadsheets.values.update(
           headerRange,
           spreadsheetId,
-          '$sheetName!A1:P1',
+          '$_activeSheetName!A1:P1',
           valueInputOption: 'RAW',
         );
         debugPrint('Google Sheets 欄位標題已建立');
@@ -133,10 +156,13 @@ class GoogleSheetsService extends ChangeNotifier {
     try {
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$sheetName!C:C',
+        '$_activeSheetName!C:C',
       );
 
-      if (response.values == null) return [];
+      if (response.values == null) {
+        debugPrint('No values found in $_activeSheetName!C:C');
+        return [];
+      }
 
       final names = <String>{};
       for (int i = 1; i < response.values!.length; i++) {
@@ -162,7 +188,7 @@ class GoogleSheetsService extends ChangeNotifier {
     try {
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$sheetName!A:P',
+        '$_activeSheetName!A:P',
       );
 
       if (response.values == null || response.values!.length <= 1) return null;
@@ -194,7 +220,7 @@ class GoogleSheetsService extends ChangeNotifier {
       await _sheetsApi!.spreadsheets.values.append(
         valueRange,
         spreadsheetId,
-        '$sheetName!A1',
+        '$_activeSheetName!A1',
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
       );
