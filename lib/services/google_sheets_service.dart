@@ -39,45 +39,53 @@ class GoogleSheetsService extends ChangeNotifier {
     _initialized = true;
 
     _googleSignIn = GoogleSignIn(
-      // Web 版需要明確指定 clientId；手機版從設定檔讀取
       clientId: kIsWeb ? webClientId : null,
       scopes: _scopes,
     );
 
     _googleSignIn.onCurrentUserChanged.listen((account) async {
+      _isSignedIn = account != null;
+      _userName = account?.displayName;
       if (account != null) {
-        _isSignedIn = true;
-        _userName = account.displayName;
-        _sheetsApi = null;
-        notifyListeners();
         await _ensureSheetsApi();
       } else {
-        _isSignedIn = false;
-        _userName = null;
         _sheetsApi = null;
-        notifyListeners();
       }
+      notifyListeners();
     });
 
-    // 嘗試靜默登入（之前已登入的使用者）
-    await _googleSignIn.signInSilently();
+    // 嘗試靜默登入，但不觸發任何彈窗
+    try {
+      await _googleSignIn.signInSilently();
+    } catch (_) {}
   }
 
   Future<bool> signIn() async {
     _isLoading = true;
+    _lastError = null;
     notifyListeners();
 
     try {
+      // 在 Web 版，直接透過 signIn 請求所有 scopes 是最穩定的
       final account = await _googleSignIn.signIn();
       if (account == null) {
-        _lastError = '登入取消或失敗';
+        _lastError = '登入失敗或已取消';
         return false;
       }
+      
+      // 檢查是否真的拿到了權限
+      final hasScopes = await _googleSignIn.canAccessScopes(_scopes);
+      if (!hasScopes) {
+        // 如果沒拿到，不自動補抓（避免閃現），直接提示用戶
+        _lastError = '請重新登入並務必「勾選」試算表讀寫權限';
+        await _googleSignIn.signOut();
+        return false;
+      }
+
       await _ensureSheetsApi();
       return _isSignedIn;
     } catch (e) {
-      _lastError = 'Sign in error: $e';
-      debugPrint(_lastError);
+      _lastError = '登入發生錯誤: $e';
       return false;
     } finally {
       _isLoading = false;
