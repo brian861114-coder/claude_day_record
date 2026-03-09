@@ -125,16 +125,36 @@ class GoogleSheetsService extends ChangeNotifier {
     _lastError = null;
 
     try {
+      final account = _googleSignIn.currentUser;
+      if (account == null) {
+        _lastError = '用戶未登入';
+        return;
+      }
+
+      // 檢查是否擁有必要權限
+      final hasScopes = await _googleSignIn.canAccessScopes(_scopes);
+      if (!hasScopes) {
+        debugPrint('Missing required scopes, requesting...');
+        _lastError = '缺少試算表讀寫權限，正在嘗試重新獲取...';
+        // 在 Web 版上，這通常需要用戶手動觸發權限。
+        // 我們先嘗試靜默獲取，如果不行，至少紀錄這個狀態。
+        final success = await _googleSignIn.requestScopes(_scopes);
+        if (!success) {
+          _lastError = '授權失敗：請確保在登入時勾選了權限。';
+          return;
+        }
+      }
+
       final authClient = await _googleSignIn.authenticatedClient();
       if (authClient == null) {
-        _lastError = '無法取得授權客戶端，請確保以正確帳號登入並授權權限';
+        _lastError = '無法取得授權客戶端，請嘗試登出後重新登入。';
         return;
       }
       _sheetsApi = SheetsApi(authClient);
       await _detectActiveSheet();
       await ensureHeaders();
     } catch (e) {
-      _lastError = '創建 Sheets API 時發生錯誤: $e';
+      _lastError = '權限驗證過程發生錯誤: $e';
       debugPrint(_lastError);
     }
   }
