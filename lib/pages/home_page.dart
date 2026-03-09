@@ -106,6 +106,14 @@ class _HomePageState extends State<HomePage> {
                             onPressed: _handleStart,
                             width: 200,
                           ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => service.forceSignIn(),
+                            child: const Text(
+                              '重新授權 (如果無法讀取資料)',
+                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                            ),
+                          ),
                         ],
                       );
                     }

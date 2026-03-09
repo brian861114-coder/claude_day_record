@@ -69,11 +69,45 @@ class GoogleSheetsService extends ChangeNotifier {
 
     try {
       final account = await _googleSignIn.signIn();
-      if (account == null) return false;
+      if (account == null) {
+        _lastError = '登入取消或失敗';
+        return false;
+      }
       await _ensureSheetsApi();
       return _isSignedIn;
     } catch (e) {
-      debugPrint('Sign in error: $e');
+      _lastError = 'Sign in error: $e';
+      debugPrint(_lastError);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 強制重新授權登入
+  Future<bool> forceSignIn() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 先登出以清除快取
+      await _googleSignIn.signOut();
+      
+      // 使用 prompt: 'consent' 強制顯示授權畫面
+      final account = await _googleSignIn.signInSilently(reAuthenticate: true)
+          .catchError((_) => _googleSignIn.signIn()); // 這裡 google_sign_in 插件在 web 版行為略有不同
+      
+      // 如果是一般 signIn，Web 版可以透過重新建立 GoogleSignIn 物件來達成，
+      // 但更直接的方法通常是讓用戶去 google 帳號權限頁面移除。
+      // 這裡我們嘗試最核心的重新登入
+      final retryAccount = await _googleSignIn.signIn();
+      
+      if (retryAccount == null) return false;
+      await _ensureSheetsApi();
+      return _isSignedIn;
+    } catch (e) {
+      _lastError = 'Force sign in error: $e';
       return false;
     } finally {
       _isLoading = false;
