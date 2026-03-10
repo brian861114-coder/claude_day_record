@@ -42,13 +42,13 @@ class _HealthPageState extends State<HealthPage> {
       ),
       children: [
         StyledTextField(
-          label: '飲食紀錄',
+          label: '身體健康努力',
           hint: '紀錄今天的飲食內容',
           controller: _dietController,
           maxLines: 4,
         ),
         StyledTextField(
-          label: '環境維護',
+          label: '環境維護與人際關係維護',
           hint: '今天做了哪些環境整理或維護？',
           controller: _environmentController,
           maxLines: 4,

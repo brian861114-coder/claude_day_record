@@ -60,22 +60,22 @@ class _NewProjectPageState extends State<NewProjectPage> {
           maxLines: 1,
         ),
         StyledTextField(
-          label: '進度摘要',
+          label: '專案規劃',
           hint: '簡述今日進度',
           controller: _progressController,
         ),
         StyledTextField(
-          label: '技術痛點與解決',
+          label: '遭遇痛點',
           hint: '描述遇到的技術難點及解決方式',
           controller: _painPointsController,
         ),
         StyledTextField(
-          label: '遇見問題',
+          label: '解決方案',
           hint: '描述報錯、邏輯卡點或 API 整合問題',
           controller: _problemsController,
         ),
         StyledTextField(
-          label: '解決方案',
+          label: '最終進度',
           hint: '紀錄使用的提示詞 Prompt、程式碼修復或 Git 同步處理方式',
           controller: _solutionsController,
         ),
