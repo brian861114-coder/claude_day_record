@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../models/daily_record.dart';
 import '../services/google_sheets_service.dart';
 import '../widgets/styled_widgets.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'core_goal_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -47,6 +48,19 @@ class _HomePageState extends State<HomePage> {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const CoreGoalPage()),
       );
+    }
+  }
+
+  Future<void> _handleViewRecords() async {
+    final url = Uri.parse(GoogleSheetsService.spreadsheetUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法開啟連結')),
+        );
+      }
     }
   }
 
@@ -100,20 +114,55 @@ class _HomePageState extends State<HomePage> {
                               color: AppTheme.textSecondary,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           StyledButton(
                             text: 'START',
                             onPressed: _handleStart,
                             width: 200,
                           ),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: _handleViewRecords,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(200, 56),
+                              side: const BorderSide(color: AppTheme.accent),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              '查看過去紀錄',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.accent,
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     }
-                    return StyledButton(
-                      text: _signingIn ? '登入中...' : 'START',
-                      onPressed: _handleStart,
-                      isLoading: _signingIn,
-                      width: 200,
+                    return Column(
+                      children: [
+                        StyledButton(
+                          text: _signingIn ? '登入中...' : 'START',
+                          onPressed: _handleStart,
+                          isLoading: _signingIn,
+                          width: 200,
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: _handleViewRecords,
+                          child: const Text(
+                            '查看過去紀錄',
+                            style: TextStyle(
+                              color: AppTheme.accent,
+                              fontSize: 16,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
