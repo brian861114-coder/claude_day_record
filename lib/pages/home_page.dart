@@ -35,8 +35,9 @@ class _HomePageState extends State<HomePage> {
 
       if (!success) {
         if (mounted) {
+          final error = sheetsService.lastError ?? '登入失敗，請重試';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('登入失敗，請重試')),
+            SnackBar(content: Text(error)),
           );
         }
         return;
@@ -137,6 +138,14 @@ class _HomePageState extends State<HomePage> {
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.accent,
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          TextButton(
+                            onPressed: () => service.forceSignIn(),
+                            child: const Text(
+                              '重新授權 (如果無法讀取資料)',
+                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                             ),
                           ),
                         ],
