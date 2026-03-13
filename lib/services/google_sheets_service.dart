@@ -10,8 +10,8 @@ class GoogleSheetsService extends ChangeNotifier {
   static const String webClientId =
       '640508411383-0igbekbk5uk4g04td82fbath7ug48brt.apps.googleusercontent.com';
   
-  // 優先嘗試的分頁名稱列表
   static const List<String> _possibleSheetNames = ['Sheet1', '工作表1'];
+  static const String projectSheetName = '專案計畫';
   String _activeSheetName = 'Sheet1';
 
   static const List<String> _scopes = [
@@ -196,7 +196,7 @@ class GoogleSheetsService extends ChangeNotifier {
     try {
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$_activeSheetName!A1:P1',
+        '$_activeSheetName!A1:J1',
       );
 
       final firstCell = response.values?.isNotEmpty == true
@@ -212,7 +212,7 @@ class GoogleSheetsService extends ChangeNotifier {
         await _sheetsApi!.spreadsheets.values.update(
           headerRange,
           spreadsheetId,
-          '$_activeSheetName!A1:P1',
+          '$_activeSheetName!A1:J1',
           valueInputOption: 'RAW',
         );
         debugPrint('Google Sheets 欄位標題已建立');
@@ -222,18 +222,51 @@ class GoogleSheetsService extends ChangeNotifier {
     }
   }
 
+  Future<void> ensureProjectHeaders() async {
+    if (_sheetsApi == null) return;
+
+    try {
+      final response = await _sheetsApi!.spreadsheets.values.get(
+        spreadsheetId,
+        '$projectSheetName!A1:G1',
+      );
+
+      final firstCell = response.values?.isNotEmpty == true
+          ? response.values![0].isNotEmpty
+              ? response.values![0][0].toString()
+              : ''
+          : '';
+
+      if (firstCell != '日期') {
+        final headerRange = ValueRange.fromJson({
+          'values': [DailyRecord.projectHeaders],
+        });
+        await _sheetsApi!.spreadsheets.values.update(
+          headerRange,
+          spreadsheetId,
+          '$projectSheetName!A1:G1',
+          valueInputOption: 'RAW',
+        );
+        debugPrint('Google Sheets 專案計畫欄位標題已建立');
+      }
+    } catch (e) {
+      debugPrint('Error ensuring project headers: $e');
+    }
+  }
+
   Future<List<String>> getProjectNames() async {
     await _ensureSheetsApi();
     if (_sheetsApi == null) return [];
 
     try {
+      await ensureProjectHeaders();
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$_activeSheetName!C:C',
+        '$projectSheetName!B:B',
       );
 
       if (response.values == null) {
-        debugPrint('No values found in $_activeSheetName!C:C');
+        debugPrint('No values found in $projectSheetName!B:B');
         return [];
       }
 
@@ -261,21 +294,47 @@ class GoogleSheetsService extends ChangeNotifier {
     try {
       final response = await _sheetsApi!.spreadsheets.values.get(
         spreadsheetId,
-        '$_activeSheetName!A:P',
+        '$projectSheetName!A:G',
       );
 
       if (response.values == null || response.values!.length <= 1) return null;
 
       for (int i = response.values!.length - 1; i >= 1; i--) {
         final row = response.values![i];
-        if (row.length > 2 && row[2].toString().trim() == projectName) {
-          return DailyRecord.fromRow(row);
+        if (row.length > 1 && row[1].toString().trim() == projectName) {
+          return DailyRecord.fromProjectRow(row);
         }
       }
       return null;
     } catch (e) {
       debugPrint('Error fetching latest record: $e');
       return null;
+    }
+  }
+
+  Future<bool> appendProjectRecord(DailyRecord record) async {
+    await _ensureSheetsApi();
+    if (_sheetsApi == null) return false;
+
+    try {
+      await ensureProjectHeaders();
+
+      final valueRange = ValueRange.fromJson({
+        'values': [record.toProjectRow()],
+      });
+
+      await _sheetsApi!.spreadsheets.values.append(
+        valueRange,
+        spreadsheetId,
+        '$projectSheetName!A1',
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+      );
+      return true;
+    } catch (e) {
+      _lastError = '儲存專案紀錄失敗: $e';
+      debugPrint(_lastError);
+      return false;
     }
   }
 

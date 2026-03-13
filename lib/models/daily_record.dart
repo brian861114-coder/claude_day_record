@@ -40,12 +40,6 @@ class DailyRecord {
   static const List<String> headers = [
     '日期',
     '今日核心目標',
-    '項目名稱',
-    '專案規劃',
-    '遭遇痛點',
-    '解決方案',
-    '最終進度',
-    '待辦事項',
     '學習主題',
     '關鍵筆記',
     '實踐應用',
@@ -56,16 +50,20 @@ class DailyRecord {
     '明天可以改進的地方',
   ];
 
+  static const List<String> projectHeaders = [
+    '日期',
+    '項目名稱',
+    '進度摘要',
+    '技術痛點與解決',
+    '遇見問題',
+    '解決方案',
+    '待辦事項',
+  ];
+
   List<String> toRow() {
     return [
       date,
       coreGoal,
-      projectName,
-      progressSummary,
-      technicalPainPoints,
-      problemsEncountered,
-      solutions,
-      todos,
       learningTopic,
       keyNotes,
       practicalApplication,
@@ -77,25 +75,49 @@ class DailyRecord {
     ];
   }
 
+  List<String> toProjectRow() {
+    return [
+      date,
+      projectName,
+      progressSummary,
+      technicalPainPoints,
+      problemsEncountered,
+      solutions,
+      todos,
+    ];
+  }
+
   static DailyRecord fromRow(List<dynamic> row) {
     String get(int i) => i < row.length ? row[i].toString() : '';
+    // This fromRow is used for Sheet1, but since Sheet1 now excludes project fields,
+    // we might need a separate fromProjectRow or handle it carefully.
+    // However, the current getProjectNames and getLatestRecord logic in service
+    // uses the C column of the active sheet. If projects are moved to another sheet,
+    // we need to update those methods too.
     return DailyRecord(
       date: get(0),
       coreGoal: get(1),
-      projectName: get(2),
-      progressSummary: get(3),
-      technicalPainPoints: get(4),
-      problemsEncountered: get(5),
-      solutions: get(6),
-      todos: get(7),
-      learningTopic: get(8),
-      keyNotes: get(9),
-      practicalApplication: get(10),
-      questions: get(11),
-      dietRecord: get(12),
-      environmentMaintenance: get(13),
-      whatWentWell: get(14),
-      whatToImprove: get(15),
+      learningTopic: get(2),
+      keyNotes: get(3),
+      practicalApplication: get(4),
+      questions: get(5),
+      dietRecord: get(6),
+      environmentMaintenance: get(7),
+      whatWentWell: get(8),
+      whatToImprove: get(9),
+    );
+  }
+
+  static DailyRecord fromProjectRow(List<dynamic> row) {
+    String get(int i) => i < row.length ? row[i].toString() : '';
+    return DailyRecord(
+      date: get(0),
+      projectName: get(1),
+      progressSummary: get(2),
+      technicalPainPoints: get(3),
+      problemsEncountered: get(4),
+      solutions: get(5),
+      todos: get(6),
     );
   }
 

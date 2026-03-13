@@ -19,6 +19,8 @@ class _NewProjectPageState extends State<NewProjectPage> {
   final _solutionsController = TextEditingController();
   final _todosController = TextEditingController();
 
+  bool _saving = false;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -30,8 +32,13 @@ class _NewProjectPageState extends State<NewProjectPage> {
     super.dispose();
   }
 
-  void _onComplete() {
-    context.read<RecordNotifier>().updateField((r) {
+  Future<void> _saveProject() async {
+    final notifier = context.read<RecordNotifier>();
+    final now = DateTime.now();
+    final timestamp = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    notifier.updateField((r) {
+      r.date = timestamp;
       r.projectName = _nameController.text;
       r.progressSummary = _progressController.text;
       r.technicalPainPoints = _painPointsController.text;
@@ -39,18 +46,73 @@ class _NewProjectPageState extends State<NewProjectPage> {
       r.solutions = _solutionsController.text;
       r.todos = _todosController.text;
     });
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const KnowledgePage()),
-    );
+
+    final service = context.read<GoogleSheetsService>();
+    final success = await service.appendProjectRecord(notifier.record);
+    
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(service.lastError ?? '儲存失敗，請重試'),
+          backgroundColor: Colors.red.shade800,
+        ),
+      );
+      throw Exception('Save failed');
+    }
+  }
+
+  Future<void> _onComplete() async {
+    setState(() => _saving = true);
+    try {
+      await _saveProject();
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const KnowledgePage()),
+        );
+      }
+    } catch (_) {
+      // Error handled in _saveProject
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _onUpdateOther() async {
+    setState(() => _saving = true);
+    try {
+      await _saveProject();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      // Error handled in _saveProject
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return PageScaffold(
       title: '二、開發與實踐',
-      bottomButton: StyledButton(
-        text: '完成',
-        onPressed: _onComplete,
+      bottomButton: Row(
+        children: [
+          Expanded(
+            child: StyledButton(
+              text: '更新其他計畫',
+              onPressed: _onUpdateOther,
+              isLoading: _saving,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: StyledButton(
+              text: '完成',
+              onPressed: _onComplete,
+              isLoading: _saving,
+            ),
+          ),
+        ],
       ),
       children: [
         StyledTextField(

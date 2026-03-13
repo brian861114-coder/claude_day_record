@@ -57,7 +57,7 @@ class _ProjectSelectionPageState extends State<ProjectSelectionPage> {
 
     if (mounted) {
       Navigator.of(context).pop(); // Close loading dialog
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => EditProjectPage(
             projectName: projectName,
@@ -65,13 +65,17 @@ class _ProjectSelectionPageState extends State<ProjectSelectionPage> {
           ),
         ),
       );
+      // Refresh list after returning
+      _loadProjects();
     }
   }
 
-  void _createNewProject() {
-    Navigator.of(context).push(
+  void _createNewProject() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const NewProjectPage()),
     );
+    // Refresh list after returning
+    _loadProjects();
   }
 
   @override
